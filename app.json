@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Archer",
+    "slug": "archer",
+    "version": "1.0.2",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#ffffff"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.outlines.archer",
+      "bitcode": false  
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.outlines.archer",
+      "versionCode":1,
+      "googleServicesFile": "./google-services.json"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "313be736-25e1-4260-bb00-67b7d8baec24"
+      }
+    },
+    "notification" : {
+      "color": "#ffffff"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#ffffff"
+          
+        }
+      ]
+    ]
+  }
+}

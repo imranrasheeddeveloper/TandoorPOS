@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1069366787624",
+    "project_id": "choices-da679",
+    "storage_bucket": "choices-da679.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1069366787624:android:25bdb4180053333bb3ff1d",
+        "android_client_info": {
+          "package_name": "com.qavi.choices"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1069366787624-6b6tbahkhhpch8nlrsnbapl9j75blpp4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjOONRg1IO9Z1wth93NipHw0jez6EoL6c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1069366787624-6b6tbahkhhpch8nlrsnbapl9j75blpp4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
