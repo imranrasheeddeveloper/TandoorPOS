@@ -4,6 +4,7 @@ import BarcodeScannerScreen from '../screens/BarcodeScannerScreen';
 import MainContainer from '../screens/MainContainer';
 import TicketForm from '../screens/TicketForm';
 import POSScreen from '../screens/POSScreen';
+import OrderScreen from '../screens/OrderScreen';
 import AccountNavigator from './AccountNavigator';
 import {MaterialCommunityIcons} from '@expo/vector-icons'
 import NewListingButton from './NewListingButton';

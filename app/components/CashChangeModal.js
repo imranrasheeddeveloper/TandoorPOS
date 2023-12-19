@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'; // Import MaterialC
 const CashChangeModal = ({ isVisible, onClose, onConfirm , total }) => {
   const [receivedCash, setReceivedCash] = useState('');
   const [changeAmount, setChangeAmount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('Paid Online');
 
   const calculateChange = () => {
     const received = parseFloat(receivedCash);

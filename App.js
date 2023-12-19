@@ -14,16 +14,22 @@ import {
   storeDiscountsData,
   storeCategoriesData,
   storeAllProducts,
+  
 } from './app/auth/dataStorage';
+
+import { storeClientData  , getClientsData} from "./app/auth/sqliteHelper";
 import cache from "./app/utility/cache";
 SplashScreen.preventAutoHideAsync();
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
   const [user, setUser] = useState();
+  const [authToken, setToken] = useState();
   const restoreToken = async () => {
     const token = await authStorage.getToken("_auth_token");
+   
     if(!token)  return setAppIsReady(true);
     setUser(JSON.parse(token));
+    setToken(token.token)
     setAppIsReady(true);
   }
   const storeLang = async() => {
@@ -36,12 +42,16 @@ export default function App() {
   useEffect(()=>{
     restoreToken();
     storeLang();
-    offlineDataSync();
+   
   },[]);
-
+  useEffect(() => {
+    if (user && user.token) {
+      offlineDataSync(user);
+    }
+  }, [user]); // Dependency on user state
   
-  const offlineDataSync = () => {
-
+  const offlineDataSync = async (currentUser) => {
+  
     axios
     .get('https://fnb.glorek.com/api/getDiscountsList')
     .then((response) => {
@@ -56,8 +66,9 @@ export default function App() {
       console.error('Error fetching discounts:', error);
     });
 
+   
   axios
-    .get('https://fnb.glorek.com/api/getAllProductServiceCategoryData')
+  .get('https://fnb.glorek.com/api/getAllProductServiceCategoryData')
     .then((response) => {
       if (response.data.success) {
         // Store categories data locally
@@ -82,6 +93,25 @@ export default function App() {
     })
     .catch((error) => {
       console.error('Error fetching all products:', error);
+    });
+       
+    axios.get('https://fnb.glorek.com/api/clientsDropdown' , {
+      headers: {
+          'Authorization': `Bearer ${currentUser.token}`
+      }
+  })
+    .then(response => {
+
+      if (response.data.success) {
+        // Store client data in SQLite
+        storeClientData(response.data.data);
+      } else {
+        console.error('Error fetching clients:', response.data.message);
+      }
+    })
+    .catch(error => {
+      console.log(user.token)
+      console.error('Error fetching clients:', error);
     });
   }
 

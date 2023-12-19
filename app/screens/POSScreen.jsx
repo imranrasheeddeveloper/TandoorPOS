@@ -8,12 +8,18 @@ import {
   Image,
   StyleSheet,
   Dimensions,
+  KeyboardAvoidingView
 } from 'react-native';
 import {
     getCategoriesData,
-    getAllProducts
+    getAllProducts,
+    storeOnHoldOrders,
+    getOnHoldOrders,
    
   } from '../auth/dataStorage';
+  import { Swipeable } from 'react-native-gesture-handler';
+
+import { storeOrderData, getOrdersData } from '../auth/sqliteHelper';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 import Screen from '../components/Screen';
@@ -21,14 +27,20 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../config/colors';
 const windowWidth = Dimensions.get('window').width;
 import DiscountListModal from '../components/DiscountList';
+import ItemDetailModal from '../components/ItemDetailModal'; 
 import CashChangeModal from '../components/CashChangeModal';
-const POSScreen = () => {
+import ClientsDropdown from '../components/ClientsDropdown';
+const POSScreen = ({ route, navigation }) => {
+  const orderToEdit = route?.params?.orderToEdit;
+
+  const initialCart = orderToEdit || [];
+ 
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [numColumns, setNumColumns] = useState(3); // Number of columns for the grid
-  const token = 'YOUR_BEARER_TOKEN'; // Replace with your actual bearer token
+
   // Format the date and time
   const currentDate = new Date();
   const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
@@ -38,51 +50,110 @@ const POSScreen = () => {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [isModalVisible, setIsModalVisible] = useState(false); // Declare isModalVisible
   const [orderNote, setOrderNote] = useState('');
-  const order = {
-    orderNumber: '', // You can generate a unique order number here
-    dateTime: '', // Formatted date and time
-    orderType: '', // Dine In, Take Away, or Delivery
-    orderItems: [], // Array of order items
-    subtotal: 0, // Subtotal amount
-    vat: 0, // VAT amount
-    discountAmount: 0, // Discount amount
-    total: 0, // Total amount
-    orderNote: '', // Order notes
-    
+  const [itemDetailModalVisible, setItemDetailModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [clientForOrder, setClientForOrder] = useState({}); 
+  
+  const selectClientForOrder = (client) => {
+    console.log(client)
+    setClientForOrder(client)
   };
 
+
+  const renderRightActions = (progress, dragX, item) => {
+    const onPress = () => {
+      // Call a function to handle item removal
+      removeFromCart(item.id);
+    };
+
+    return (
+      <TouchableOpacity onPress={onPress} style={styles.deleteButton}>
+        <Text style={styles.deleteButtonText}>Delete</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const handleSelectItem = (item) => {
+    setSelectedItem(item);
+    setItemDetailModalVisible(true);
+  };
+
+  const handleApplyDiscount = (updatedItem) => {
+    const updatedCart = cart.map(cartItem => {
+      if (cartItem.id === updatedItem.id) {
+        // Update the item with the new discount and optionally with the note
+        return { 
+          ...cartItem, 
+          discount: updatedItem.discount, // Update discount
+          note: updatedItem.note || cartItem.note // Update note if provided, else keep existing
+        };
+      }
+      return cartItem;
+    });
+  
+    setCart(updatedCart);
+    setItemDetailModalVisible(false); // Close the modal after updating the item
+  };
+  
+  
+
+  const handleCloseModal = () => {
+    setItemDetailModalVisible(false);
+  };
+  
+  
+  
+
+  const removeFromCart = (productId) => {
+    // Remove the item from the cart
+    const updatedCart = cart.filter(item => item.id !== productId);
+    setCart(updatedCart);
+  };
+
+
+    const holdOrder = () => {
+      const newOrder = createOrder(cart, selectedOrderOption, subtotal, vat, discountAmount, total, orderNote , 'Hold');
+      storeOrderData(newOrder);
+  
+    }
+  
   const generateOrderNumber = () => {
-    // Generate a unique order number here
-    // You can use a combination of timestamps, random numbers, or any logic you prefer
-    // For simplicity, let's use a timestamp as an example
     const timestamp = Date.now();
     return `ORDER-${timestamp}`;
   };
 
-  const createOrder = (cart, selectedOrderOption, subtotal, vat, discountAmount, total, orderNote) => {
+  const createOrder = (cart, selectedOrderOption, subtotal, vat, discountAmount, total, orderNote , orderState) => {
     const currentDate = new Date();
-    const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
-    const formattedDateTime = new Intl.DateTimeFormat('en-US', options).format(currentDate);
+    const dateOptions = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
+    const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
   
-    const orderNumber = generateOrderNumber(); // You can implement this function
+    const formattedDate = new Intl.DateTimeFormat('en-US', dateOptions).format(currentDate);
+    const formattedTime = new Intl.DateTimeFormat('en-US', timeOptions).format(currentDate);
+  
+    const orderNumber = generateOrderNumber(); // Generate a unique order number
   
     const orderItems = cart.map((item) => ({
-      id: item.id, // Assuming each item has an ID
+      id: item.id,
       name: item.name,
       quantity: item.quantity,
       price: item.price,
+      note: item.note,
+      discount: item.discount
     }));
   
     const newOrder = {
       orderNumber,
-      dateTime: formattedDateTime,
+      orderDate: formattedDate, // Set the formatted date
+      orderTime: formattedTime, // Set the formatted time
       orderType: selectedOrderOption,
-      orderItems, // Include order items in the order object
+      orderItems,
       subtotal,
       vat,
       discountAmount,
       total,
       orderNote,
+      orderState: orderState,
+      client: clientForOrder
     };
     setIsModalVisible(false)
     setCart([]); // Clear the cart
@@ -124,8 +195,8 @@ const POSScreen = () => {
   };
 
   const confirmOrder = () => {
-    const newOrder = createOrder(cart, selectedOrderOption, subtotal, vat, discountAmount, total, orderNote);
-    console.log('newOrder' , newOrder)
+    const newOrder = createOrder(cart, selectedOrderOption, subtotal, vat, discountAmount, total, orderNote , 'Completed');
+    storeOrderData(newOrder);
 
   }
   const calculateCartSubtotal = (cart) => {
@@ -136,10 +207,20 @@ const POSScreen = () => {
  
 // Calculate Subtotal, VAT, and Total
 const calculateCartTotals = () => {
-    const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
-    const vat = subtotal * 0.15; // 15% VAT rate
-    return { subtotal, vat };
-  };
+  const subtotal = cart.reduce((total, item) => {
+    // Calculate the item's total price after applying item-level discount
+    const itemTotal = item.price - (item.discount?.discount_type === 'Percentage'
+      ? (item.discount.rate / 100) * item.price
+      : item.discount?.rate || 0);
+    return total + itemTotal * item.quantity;
+  }, 0);
+
+  const vat = subtotal * 0.15; // 15% VAT rate
+  const total = subtotal + vat - discountAmount; // Subtract the discount
+
+  return { subtotal, vat, total };
+};
+
   const { subtotal, vat } = calculateCartTotals();
   const total = subtotal + vat - discountAmount;
   
@@ -153,6 +234,8 @@ const calculateCartTotals = () => {
 
   useEffect(() => {
     fetchCategories()
+    console.log(initialCart)
+    setCart(initialCart)
     // Recalculate discount whenever the cart or selectedDiscount changes
     if (cart.length > 0 && selectedDiscount) {
       const subtotal = calculateCartSubtotal(cart);
@@ -180,25 +263,7 @@ const calculateCartTotals = () => {
   
   };
 
-//   const fetchProductsByCategory = (categoryId) => {
-//     const requestData = {
-//       category_id: categoryId,
-//     };
 
-//     axios.post('https://fnb.glorek.com/api/getExpenceItemsByCategory', requestData, {
-//       headers: {
-//         Authorization: `Bearer ${token}`,
-//       },
-//     })
-//       .then(response => {
-//         setProducts(response.data.data);
-//       })
-//       .catch(error => {
-//         console.error('Error fetching products:', error);
-//       });
-//   };
-
-  // Fetch products by category_id
 
   const fetchProductsByCategory = async (categoryId) => {
     // Retrieve all products data from local storage
@@ -227,18 +292,22 @@ const calculateCartTotals = () => {
   };
 
   const addToCart = (product) => {
-    // Check if the product is already in the cart
+    console.log(product)
     const existingProduct = cart.find(item => item.id === product.id);
-
+  
     if (existingProduct) {
-      // Increase the quantity if the product is already in the cart
       existingProduct.quantity += 1;
       setCart([...cart]);
     } else {
-      // Add the product to the cart with a quantity of 1
-      setCart([...cart, { ...product, quantity: 1 }]);
+      setCart([...cart, { 
+        ...product, 
+        quantity: 1, 
+        note: '', 
+        discount: null 
+      }]);
     }
   };
+  
 
   const decreaseQuantity = (productId) => {
     // Decrease the quantity of a product in the cart
@@ -258,6 +327,10 @@ const calculateCartTotals = () => {
 
   return (
     <Screen style={styles.screen}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
       <View style={styles.container}>
         {/* Products List */}
         <View style={styles.productList}>
@@ -317,7 +390,13 @@ const calculateCartTotals = () => {
         {/* Cart */}
         <View style={styles.cart}>
           <View style={styles.cartHeader}>
-            <Text style={styles.orderNumber}>Order #12345</Text>
+            <View style={styles.cartText}>
+            <Text style={styles.orderNumber}>Cart</Text>
+            <ClientsDropdown 
+                onSelect={(client) => selectClientForOrder(client)}
+              />
+            </View>
+            
             <View style={styles.orderOptions}>
               {orderOptions.map((option) => (
                 <TouchableOpacity
@@ -342,36 +421,60 @@ const calculateCartTotals = () => {
           </View>
 
           {/* Cart Items */}
+          {cart.length === 0 ? (
+          <Text style={styles.emptyCartMessage}>Add items to cart...</Text>
+        ) : (
           <FlatList
-            data={cart}
-            keyExtractor={(item) => `${item.id}-${numColumns}`}
-            renderItem={({ item }) => (
-                <View style={styles.cartItem}>
-                <View style={styles.cartItemNameContainer}>
-                  <Text style={styles.cartItemName}>{item.name}</Text>
-                </View>
-                <View style={styles.quantityControls}>
-                  <TouchableOpacity onPress={() => decreaseQuantity(item.id)}>
-                    <Icon name="remove-circle" size={24} color="red" />
-                  </TouchableOpacity>
-                  <Text style={styles.cartItemQuantity}>{item.quantity}</Text>
-                  <TouchableOpacity onPress={() => addToCart(item)}>
-                    <Icon name="add-circle" size={24} color="green" />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.cartItemTotal}>{`SAR ${item.price * item.quantity}`}</Text>
-              </View>              
+  data={cart}
+  keyExtractor={(item) => `${item.id}-${numColumns}`}
+  renderItem={({ item }) => (
+    <Swipeable
+      renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
+    >
+      <View style={styles.cartItem}>
+        <View style={styles.cartItemNameContainer}>
+          <TouchableOpacity onPress={() => handleSelectItem(item)}>
+            <Text style={styles.cartItemName}>{item.name}</Text>
+            <Text style={styles.itemNote}>{item.note}</Text>
+            {item.discount && (
+              <Text style={styles.itemDiscount}>
+                Discount: {item.discount.discount_type === 'Percentage'
+                  ? `${item.discount.rate}%`
+                  : `SAR ${item.discount.rate}`}
+              </Text>
             )}
-          />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.quantityControls}>
+          <TouchableOpacity onPress={() => decreaseQuantity(item.id)}>
+            <Icon name="remove-circle" size={24} color="red" />
+          </TouchableOpacity>
+          <Text style={styles.cartItemQuantity}>{item.quantity}</Text>
+          <TouchableOpacity onPress={() => addToCart(item)}>
+            <Icon name="add-circle" size={24} color="green" />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.cartItemTotal}>
+          SAR {((item.price - (item.discount?.discount_type === 'Percentage'
+            ? (item.discount.rate / 100) * item.price
+            : item.discount?.rate || 0)) * item.quantity).toFixed(2)}
+        </Text>
+      </View>
+    </Swipeable>
+  )}
+/>
 
+          )}
           {/* Order Note */}
           <TextInput
             style={styles.orderNote}
             placeholder="Add order note...."
             placeholderTextColor="grey"
             value={orderNote}
+            onChangeText={text => setOrderNote(text)} // Handle changes to the text input
             multiline={true}
           />
+
 
           {/* Subtotal, Total, VAT */}
             <View style={styles.cartFooter}>
@@ -394,26 +497,33 @@ const calculateCartTotals = () => {
             </View>
 
             <View style={styles.buttonContainer}>
-          {/* Add Order Button */}
-          <TouchableOpacity
-                style={styles.addOrderButton}
-                onPress={() => setIsModalVisible(true)} // Update isModalVisible
-            >
-                <Text style={styles.addOrderButtonText}>Add Order</Text>
-            </TouchableOpacity>
-          {/* Add Discount Button */}
-          <TouchableOpacity
-            style={styles.addDiscountButton}
-            onPress={() => setDiscountModalVisible(true)}
-            disabled={cart.length === 0}
-          >
-            <Text style={styles.addDiscountButtonText}>Add Discount</Text>
-          </TouchableOpacity>
-        </View>
+              <View style={styles.addButtonsContainer}>
+                {/* Add Order Button */}
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => setIsModalVisible(true)} // Update isModalVisible
+                >
+                  <Text style={styles.addButtonText}>Add Order</Text>
+                </TouchableOpacity>
 
+                {/* Add Discount Button */}
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => setDiscountModalVisible(true)}
+                  disabled={cart.length === 0}
+                >
+                  <Text style={styles.addButtonText}>Add Discount</Text>
+                </TouchableOpacity>
+              </View>
 
-
-          
+              {/* Hold Button */}
+              <TouchableOpacity
+                style={styles.holdButton}
+                onPress={() => holdOrder()}
+              >
+                <Text style={styles.holdButtonText}>Hold</Text>
+              </TouchableOpacity>
+            </View>
         </View>
         <DiscountListModal
           isVisible={isDiscountModalVisible}
@@ -426,8 +536,15 @@ const calculateCartTotals = () => {
         onConfirm={confirmOrder} // Update isModalVisible
         total={total} // Pass the total amount to the modal
       />
+      <ItemDetailModal
+        isVisible={itemDetailModalVisible}
+        item={selectedItem}
+        onClose={handleCloseModal}
+        onApplyDiscount={handleApplyDiscount}
+      />
+
       </View>
-      
+      </KeyboardAvoidingView>
     </Screen>
   );
 };
@@ -583,7 +700,16 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
   },
+ 
+  cartText: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: 20,
+},
+
   orderNumber: {
+    flex : 1,
     fontSize: 24,
     fontWeight: 'bold',
     color: 'lightgrey',
@@ -693,11 +819,76 @@ const styles = StyleSheet.create({
     color: 'lightgrey',
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 10,
-  
+    flexDirection: 'column', // Column layout to stack buttons vertically
+    alignItems: 'center', // Center buttons horizontally
   },
+  addButtonsContainer: {
+    flexDirection: 'row', // Row layout to place "Add Order" and "Add Discount" buttons side by side
+  },
+  addButton: {
+    flex: 1, // Equal flex for both "Add Order" and "Add Discount" buttons
+    backgroundColor: colors.secondary,
+    borderRadius: 5,
+    padding: 10,
+    alignItems: 'center',
+    marginTop: 10,
+    marginRight: 5, // Add some margin between the buttons
+  },
+  addButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'lightgrey',
+  },
+  holdButton: {
+    
+    backgroundColor: colors.green,
+    borderRadius: 5,
+    padding: 10,
+    alignItems: 'center',
+    marginTop: 10,
+    width : '100%'
+  },
+  holdButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'lightgrey',
+  },
+
+  emptyCartMessage: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 20,
+    color: 'gray',
+    alignItems : 'center'
+  },
+
+  deleteButton: {
+    backgroundColor: 'red',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    height: '100%', // Make sure the height matches the cart item
+    paddingHorizontal: 20,
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  itemNote: {
+    color: 'grey',
+    fontSize: 12,
+  },
+  itemDiscount: {
+    color: 'green',
+    fontSize: 12,
+  },
+  dropdownContainer: {
+    flex: 1,
+    paddingHorizontal: 10,
+    // Any additional styling for the dropdown container
+  },
+  
 });
 
 export default POSScreen;

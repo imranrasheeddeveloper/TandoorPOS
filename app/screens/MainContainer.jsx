@@ -1,17 +1,27 @@
 // MainContainer.js
-import React, { useState } from 'react';
+import React, { useState , useContext, useEffect} from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native'; // Import the useNavigation hook
 import LeftSidebar from '../components/LeftSidebar';
 import ComponentOne from './POSScreen';
-import ComponentTwo from './BarcodeScannerScreen';
-import ComponentThree from './ScanningHistoryScreen';
+import ComponentTwo from './OrderScreen';
+import ComponentThree from './AccountScreen';
 import colors from '../config/colors';
 import Screen from '../components/Screen';
+import AuthContext from '../auth/context';
+import authStorage from '../auth/storage';
+
+
+
 const MainContainer = () => {
   const navigation = useNavigation(); // Access the navigation object
   const [selectedComponent, setSelectedComponent] = useState(0);
-
+  const {user, setUser} = useContext(AuthContext);
+  useEffect(()=>{
+    (async () => {
+      handleLeftSidebarIconPress(0)
+    })();
+  }, []);
   const handleLeftSidebarIconPress = (index) => {
     console.log(`Left Sidebar Button ${index + 1} pressed`);
 
@@ -25,6 +35,10 @@ const MainContainer = () => {
         break;
       case 2:
         setSelectedComponent('ComponentThree');
+        case 3:
+          console.log(user.token)
+          setUser(null);
+          authStorage.removeToken("_auth_token");
         break;
       default:
         break;
@@ -37,7 +51,7 @@ const MainContainer = () => {
       <LeftSidebar onIconPress={handleLeftSidebarIconPress} />
       <View style={styles.mainContent}>
         {selectedComponent === 'ComponentOne' && <ComponentOne />}
-        {selectedComponent === 'ComponentTwo' && <ComponentOne />}
+        {selectedComponent === 'ComponentTwo' && <ComponentTwo />}
         {selectedComponent === 'ComponentThree' && <ComponentThree />}
         {/* Add more components or screens as needed */}
       </View>

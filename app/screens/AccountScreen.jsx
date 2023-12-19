@@ -28,10 +28,10 @@ function AccountScreen({navigation}) {
     }, [navigation]);
     const menuItems =  [
         {
-            title:lang === 'en'? 'Scanning History' : 'تاريخ المسح',
+            title:lang === 'en'? 'Sale' : 'تاريخ المسح',
             icon: {
                 name:"history",
-                backgroundColor:colors.primary
+                backgroundColor:colors.secondary
             },
             targetScreen: lang === 'en'? 'Scanning History' : 'تاريخ المسح'
         }
@@ -133,7 +133,7 @@ function AccountScreen({navigation}) {
                              <View style={{
                                  width:40,
                                  height:40,
-                                 backgroundColor:colors.primary,
+                                 backgroundColor:colors.secondary,
                                  borderRadius: 40/2,
                                  justifyContent: 'center',
                                  alignItems: "center",
@@ -143,28 +143,12 @@ function AccountScreen({navigation}) {
                         }
                         onPress={languageSelection}
                  />
-                 <ListItem 
-                        lang={lang}
-                        title={lang === 'en'? 'Activity Type' : 'نوع النشاط'}
-                        IconComponent={
-                             <View style={{
-                                 width:40,
-                                 height:40,
-                                 backgroundColor:colors.primary,
-                                 borderRadius: 40/2,
-                                 justifyContent: 'center',
-                                 alignItems: "center",
-                             }}>
-                                 <MaterialIcons name="event" size={40*0.5} color="#fff" />
-                             </View>
-                        }
-                        onPress={activityTypeSelection}
-                 />
+                 
                  <ListItem 
                         lang={lang}
                         title={lang === 'en'? 'Log Out' : 'تسجيل خروج'} 
                         IconComponent={
-                            <Icon name="logout" backgroundColor={colors.primary} />
+                            <Icon name="logout" backgroundColor={colors.secondary} />
                         }
                         onPress={openLogoutModal}
                  />
