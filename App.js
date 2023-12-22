@@ -14,6 +14,7 @@ import {
   storeDiscountsData,
   storeCategoriesData,
   storeAllProducts,
+  storeTablesData
   
 } from './app/auth/dataStorage';
 
@@ -45,15 +46,32 @@ export default function App() {
    
   },[]);
   useEffect(() => {
+    
     if (user && user.token) {
       offlineDataSync(user);
     }
   }, [user]); // Dependency on user state
+
+
+  useEffect(() => {
+    // Initial data fetch and sync
+    const offlineSyncInterval = setInterval(() => {
+      offlineDataSync();
+    }, 5 * 60 * 1000); // 5 minutes in milliseconds
+
+    return () => {
+      clearInterval(offlineSyncInterval);
+    };
+  }, [user]);
   
   const offlineDataSync = async (currentUser) => {
   
     axios
-    .get('https://fnb.glorek.com/api/getDiscountsList')
+    .get('https://fnb.glorek.com/api/getDiscountsList', {
+      headers: {
+          'Authorization': `Bearer ${currentUser.token}`
+      }
+    })
     .then((response) => {
       if (response.data.success) {
        
@@ -66,9 +84,32 @@ export default function App() {
       console.error('Error fetching discounts:', error);
     });
 
+
+    axios
+    .get('https://fnb.glorek.com/api/getAllTables', {
+      headers: {
+          'Authorization': `Bearer ${currentUser.token}`
+      }
+    })
+    .then((response) => {
+      if (response.data.success) {
+       
+        storeTablesData(response.data.data);
+      } else {
+        console.error('Error fetching discounts:', response.data.message);
+      }
+    })
+    .catch((error) => {
+      console.error('Error fetching discounts:', error);
+    });
+
    
   axios
-  .get('https://fnb.glorek.com/api/getAllProductServiceCategoryData')
+  .get('https://fnb.glorek.com/api/getAllProductServiceCategoryData', {
+    headers: {
+        'Authorization': `Bearer ${currentUser.token}`
+    }
+})
     .then((response) => {
       if (response.data.success) {
         // Store categories data locally
@@ -82,7 +123,11 @@ export default function App() {
     });
 
     axios
-    .get('https://fnb.glorek.com/api/getAllProducts')
+    .get('https://fnb.glorek.com/api/getAllProducts', {
+      headers: {
+          'Authorization': `Bearer ${currentUser.token}`
+      }
+  })
     .then((response) => {
       if (response.data.success) {
         // Store all products data locally

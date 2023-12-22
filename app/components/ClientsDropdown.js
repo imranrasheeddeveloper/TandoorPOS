@@ -9,13 +9,20 @@ const ClientsDropdown = ({ onSelect }) => {
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
-
+   
   useEffect(() => {
     getClientsData(setClients);
+    const defaultClient = {
+      "text": "Store Walk-In",
+      "value": "1",
+    }
+    setSelectedClient(defaultClient)
+   
   }, []);
 
   const handleSelect = (client) => {
     setSelectedClient(client);
+    console.log(client)
     onSelect(client);
     setIsExpanded(false);
   };

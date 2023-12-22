@@ -1,30 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../config/colors';
-import { MaterialCommunityIcons } from '@expo/vector-icons'; // Import MaterialCommunityIcons
 
-const CashChangeModal = ({ isVisible, onClose, onConfirm , total }) => {
+const CashChangeModal = ({ isVisible, onClose, onConfirm, total }) => {
   const [receivedCash, setReceivedCash] = useState('');
+  const [cashAmount, setCashAmount] = useState(0);
+  const [creditCardAmount, setCreditCardAmount] = useState(0);
   const [changeAmount, setChangeAmount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState('Paid Online');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+
+  useEffect(() => {
+    calculateChange();
+  }, [receivedCash, cashAmount, creditCardAmount, paymentMethod]);
 
   const calculateChange = () => {
     const received = parseFloat(receivedCash);
+    const cash = parseFloat(cashAmount);
+    const creditCard = parseFloat(creditCardAmount);
+
     if (!isNaN(received)) {
-      const change = received - total;
+      let totalPaid = 0;
+
+      if (paymentMethod === 'Cash') {
+        totalPaid = cash;
+      } else if (paymentMethod === 'Credit Card') {
+        totalPaid = creditCard;
+      } else if (paymentMethod === 'Split') {
+        totalPaid = cash + creditCard;
+      }
+
+      const change = total - totalPaid;
       setChangeAmount(change);
     }
   };
 
   const handleKeyPress = (value) => {
-    const newReceivedCash = receivedCash + value;
-    setReceivedCash(newReceivedCash);
-    calculateChange(); // Calculate change on each button tap
+    if (paymentMethod === 'Cash') {
+      const newReceivedCash = receivedCash + value;
+      setReceivedCash(newReceivedCash);
+      const cash = parseFloat(newReceivedCash);
+      setCashAmount(isNaN(cash) ? 0 : cash);
+    } else if (paymentMethod === 'Credit Card') {
+      const newCreditCardAmount = creditCardAmount + value;
+      setCreditCardAmount(newCreditCardAmount);
+      const creditCard = parseFloat(newCreditCardAmount);
+      setCreditCardAmount(isNaN(creditCard) ? 0 : creditCard);
+    }
   };
 
   const clearInput = () => {
     setReceivedCash('');
-    setChangeAmount(0);
+    setCashAmount(0);
+    setCreditCardAmount(0);
   };
 
   return (
@@ -35,69 +63,80 @@ const CashChangeModal = ({ isVisible, onClose, onConfirm , total }) => {
       onRequestClose={onClose}
     >
       <View style={styles.modalContainer}>
-      
         <View style={styles.modalContent}>
-        <TouchableOpacity
-          style={styles.closeButton} // Style for the close button container
-          onPress={onClose}
-        >
-          <MaterialCommunityIcons
-            name="close-circle" // Name of the MaterialCommunityIcons icon
-            size={24} // Icon size
-            color="white" // Icon color
-          />
-        </TouchableOpacity>
-          {/* <Text style={styles.modalTitle}>Payment Method</Text> */}
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <MaterialCommunityIcons
+              name="close-circle"
+              size={24}
+              color="white"
+            />
+          </TouchableOpacity>
           <View style={styles.paymentButtons}>
-            <TouchableOpacity
-              style={[
-                styles.paymentButton,
-                paymentMethod === 'Paid Online' && styles.selectedPaymentButton,
-              ]}
-              onPress={() => {
-                setPaymentMethod('Paid Online');
-                calculateChange(); // Calculate change when changing payment method
-              }}
-            >
-              <Text style={styles.paymentButtonText}>Paid Online</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.paymentButton,
                 paymentMethod === 'Cash' && styles.selectedPaymentButton,
               ]}
-              onPress={() => {
-                setPaymentMethod('Cash');
-                calculateChange(); // Calculate change when changing payment method
-              }}
+              onPress={() => setPaymentMethod('Cash')}
             >
               <Text style={styles.paymentButtonText}>Cash</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.paymentButton,
-                paymentMethod === 'Mada' && styles.selectedPaymentButton,
+                paymentMethod === 'Credit Card' && styles.selectedPaymentButton,
               ]}
-              onPress={() => {
-                setPaymentMethod('Mada');
-                calculateChange(); // Calculate change when changing payment method
-              }}
+              onPress={() => setPaymentMethod('Credit Card')}
             >
-              <Text style={styles.paymentButtonText}>Mada</Text>
+              <Text style={styles.paymentButtonText}>Credit Card</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.paymentButton,
+                paymentMethod === 'Split' && styles.selectedPaymentButton,
+              ]}
+              onPress={() => setPaymentMethod('Split')}
+            >
+              <Text style={styles.paymentButtonText}>Split</Text>
             </TouchableOpacity>
           </View>
           {paymentMethod !== null && (
             <>
+              {paymentMethod === 'Split' && (
+                <>
+                  <Text style={styles.amountText}>Enter Cash Amount</Text>
+                  <Text style={styles.amountText}>Enter Credit Card Amount</Text>
+                </>
+              )}
               <Text style={styles.totalText}>Total Amount</Text>
               <Text style={styles.totalAmount}>SAR {total.toFixed(2)}</Text>
               {paymentMethod === 'Cash' && (
-                <Text style={styles.enteredCashText}>Entered Cash: SAR {receivedCash}</Text>
+                <Text style={styles.enteredCashText}>
+                  Entered Cash: SAR {receivedCash}
+                </Text>
+              )}
+              {paymentMethod === 'Credit Card' && (
+                <Text style={styles.enteredCreditCardText}>
+                  Entered Credit Card: SAR {creditCardAmount}
+                </Text>
+              )}
+              {paymentMethod === 'Split' && (
+                <>
+                  <Text style={styles.enteredCashText}>
+                    Entered Cash: SAR {cashAmount}
+                  </Text>
+                  <Text style={styles.enteredCreditCardText}>
+                    Entered Credit Card: SAR {creditCardAmount}
+                  </Text>
+                </>
               )}
             </>
           )}
           {paymentMethod === 'Cash' && (
             <>
-              <Text style={styles.modalChangeText}>Change: SAR {changeAmount.toFixed(2)}</Text>
+              <Text style={styles.modalChangeText}>
+                Change: SAR {changeAmount.toFixed(2)}
+              </Text>
               <View style={styles.numericKeypad}>
                 <View style={styles.keypadRow}>
                   {[1, 2, 3].map((number) => (
@@ -149,10 +188,68 @@ const CashChangeModal = ({ isVisible, onClose, onConfirm , total }) => {
               </View>
             </>
           )}
-          <TouchableOpacity
-            style={styles.confirmButton}
-            onPress={onConfirm}
-          >
+          {paymentMethod === 'Credit Card' && (
+            <Text style={styles.modalChangeText}>
+              Change: SAR {changeAmount.toFixed(2)}
+            </Text>
+          )}
+          {paymentMethod === 'Split' && (
+            <>
+              <Text style={styles.modalChangeText}>
+                Remaining Change: SAR {changeAmount.toFixed(2)}
+              </Text>
+              <View style={styles.numericKeypad}>
+                <View style={styles.keypadRow}>
+                  {[1, 2, 3].map((number) => (
+                    <TouchableOpacity
+                      key={number}
+                      style={styles.keypadButton}
+                      onPress={() => handleKeyPress(number.toString())}
+                    >
+                      <Text style={styles.keypadButtonText}>{number}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.keypadRow}>
+                  {[4, 5, 6].map((number) => (
+                    <TouchableOpacity
+                      key={number}
+                      style={styles.keypadButton}
+                      onPress={() => handleKeyPress(number.toString())}
+                    >
+                      <Text style={styles.keypadButtonText}>{number}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.keypadRow}>
+                  {[7, 8, 9].map((number) => (
+                    <TouchableOpacity
+                      key={number}
+                      style={styles.keypadButton}
+                      onPress={() => handleKeyPress(number.toString())}
+                    >
+                      <Text style={styles.keypadButtonText}>{number}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.keypadRow}>
+                  <TouchableOpacity
+                    style={styles.keypadButton}
+                    onPress={() => handleKeyPress('0')}
+                  >
+                    <Text style={styles.keypadButtonText}>0</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.keypadButton}
+                    onPress={clearInput}
+                  >
+                    <Text style={styles.keypadButtonText}>C</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </>
+          )}
+          <TouchableOpacity style={styles.confirmButton} onPress={onConfirm}>
             <Text style={styles.confirmButtonText}>Confirm Order</Text>
           </TouchableOpacity>
         </View>

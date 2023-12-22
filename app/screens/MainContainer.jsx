@@ -6,6 +6,7 @@ import LeftSidebar from '../components/LeftSidebar';
 import ComponentOne from './POSScreen';
 import ComponentTwo from './OrderScreen';
 import ComponentThree from './AccountScreen';
+ import PrinterSettings from './PrinterSettingsScreen';
 import colors from '../config/colors';
 import Screen from '../components/Screen';
 import AuthContext from '../auth/context';
@@ -34,12 +35,11 @@ const MainContainer = () => {
         setSelectedComponent('ComponentTwo');
         break;
       case 2:
-        setSelectedComponent('ComponentThree');
-        case 3:
+        setSelectedComponent('PrinterSettings');
+      case 4:
           console.log(user.token)
           setUser(null);
           authStorage.removeToken("_auth_token");
-        break;
       default:
         break;
     }
@@ -53,6 +53,7 @@ const MainContainer = () => {
         {selectedComponent === 'ComponentOne' && <ComponentOne />}
         {selectedComponent === 'ComponentTwo' && <ComponentTwo />}
         {selectedComponent === 'ComponentThree' && <ComponentThree />}
+        {selectedComponent === 'PrinterSettings' && <PrinterSettings />}
         {/* Add more components or screens as needed */}
       </View>
     </View>

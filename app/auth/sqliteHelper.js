@@ -47,6 +47,7 @@ export const getClientsData = (callback) => {
 };
 
 export const storeOrderData = (order) => {
+  console.log("neworder" , order)
   db.transaction(tx => {
     tx.executeSql(
       'INSERT OR REPLACE INTO orders (orderNumber, orderData) VALUES (?, ?);',

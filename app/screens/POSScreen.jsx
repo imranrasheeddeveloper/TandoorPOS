@@ -18,7 +18,7 @@ import {
    
   } from '../auth/dataStorage';
   import { Swipeable } from 'react-native-gesture-handler';
-
+  //import printKOT from '../components/KOTPrinter';
 import { storeOrderData, getOrdersData } from '../auth/sqliteHelper';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
@@ -30,10 +30,10 @@ import DiscountListModal from '../components/DiscountList';
 import ItemDetailModal from '../components/ItemDetailModal'; 
 import CashChangeModal from '../components/CashChangeModal';
 import ClientsDropdown from '../components/ClientsDropdown';
-const POSScreen = ({ route, navigation }) => {
-  const orderToEdit = route?.params?.orderToEdit;
+const POSScreen = ({ }) => {
+  // const orderToEdit = route?.params?.orderToEdit;
 
-  const initialCart = orderToEdit || [];
+  // const initialCart = orderToEdit || [];
  
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
@@ -53,12 +53,18 @@ const POSScreen = ({ route, navigation }) => {
   const [itemDetailModalVisible, setItemDetailModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [clientForOrder, setClientForOrder] = useState({}); 
-  
+  const [subtotal, setSubtotal] = useState(0);
+  const [vat, setVat] = useState(0);
+  const [total, setTotal] = useState(0);
+
   const selectClientForOrder = (client) => {
     console.log(client)
     setClientForOrder(client)
   };
 
+  useEffect(() => {
+    calculateCartTotals();
+  }, [cart]);
 
   const renderRightActions = (progress, dragX, item) => {
     const onPress = () => {
@@ -93,6 +99,7 @@ const POSScreen = ({ route, navigation }) => {
   
     setCart(updatedCart);
     setItemDetailModalVisible(false); // Close the modal after updating the item
+    calculateCartTotals();
   };
   
   
@@ -100,6 +107,22 @@ const POSScreen = ({ route, navigation }) => {
   const handleCloseModal = () => {
     setItemDetailModalVisible(false);
   };
+
+  const handleApplyAddons = (selectedAddons) => {
+    const updatedCart = cart.map(cartItem => {
+      if (cartItem.id === selectedAddons.itemId) {
+        return { 
+          ...cartItem, 
+          addons: selectedAddons.addons
+        };
+      }
+      return cartItem;
+    });
+  
+    setCart([...updatedCart]);
+    calculateCartTotals();
+  };
+  
   
   
   
@@ -108,14 +131,41 @@ const POSScreen = ({ route, navigation }) => {
     // Remove the item from the cart
     const updatedCart = cart.filter(item => item.id !== productId);
     setCart(updatedCart);
+    calculateCartTotals();
   };
 
 
     const holdOrder = () => {
       const newOrder = createOrder(cart, selectedOrderOption, subtotal, vat, discountAmount, total, orderNote , 'Hold');
+     // printKOT(newOrder);
       storeOrderData(newOrder);
+      //createPOSOrder(newOrder)
   
     }
+
+    async function createPOSOrder(orderData) {
+      const apiUrl = 'https://fnb.glorek.com/api/createPOSOrder';
+    
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderData),
+        });
+    
+        if (!response.ok) {
+          throw new Error(`API request failed with status ${response.status}`);
+        }
+    
+        const responseData = await response.json();
+        return responseData;
+      } catch (error) {
+        throw error;
+      }
+    }
+    
   
   const generateOrderNumber = () => {
     const timestamp = Date.now();
@@ -138,7 +188,8 @@ const POSScreen = ({ route, navigation }) => {
       quantity: item.quantity,
       price: item.price,
       note: item.note,
-      discount: item.discount
+      discount: item.discount,
+      addons: item.addons
     }));
   
     const newOrder = {
@@ -173,7 +224,7 @@ const POSScreen = ({ route, navigation }) => {
       return;
     }
 
-    const subtotal = calculateCartSubtotal(cart);
+    // const subtotal = calculateCartTotals();
 
     if (discount.discount_type === 'Percentage') {
       const discountValue = (subtotal * discount.rate) / 100;
@@ -200,29 +251,101 @@ const POSScreen = ({ route, navigation }) => {
 
   }
   const calculateCartSubtotal = (cart) => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
+    const subtotal = calculateCartSubtotal(cart);
+
+    return subtotal;
   };
 
  
  
-// Calculate Subtotal, VAT, and Total
-const calculateCartTotals = () => {
-  const subtotal = cart.reduce((total, item) => {
-    // Calculate the item's total price after applying item-level discount
-    const itemTotal = item.price - (item.discount?.discount_type === 'Percentage'
-      ? (item.discount.rate / 100) * item.price
-      : item.discount?.rate || 0);
-    return total + itemTotal * item.quantity;
-  }, 0);
+  const calculateCartTotals = () => {
+    let newSubtotal = 0;
+    let newTotal = 0;
+    let newVat = 0;
+  
+    if (cart.length > 0) {
+      cart.forEach((item) => {
+        // Check if item.price is valid and convert it to a number
+        const itemPrice = parseFloat(item.price) || 0;
+  
+        // Calculate the item's total price without the discount
+        let itemTotal = itemPrice;
+  
+        if (item.discount) {
+          if (item.discount.discount_type === 'Percentage') {
+            // Check if item.discount.rate is valid and convert it to a number
+            const discountRate = parseFloat(item.discount.rate) || 0;
+            // Apply percentage discount
+            itemTotal -= (discountRate / 100) * itemPrice;
+          } else if (item.discount.discount_type === 'Fixed') {
+            // Check if item.discount.rate is valid and convert it to a number
+            const discountAmount = parseFloat(item.discount.rate) || 0;
+            // Apply fixed amount discount
+            itemTotal -= discountAmount;
+          }
+        }
+  
+        // Calculate the total price for the addons
+        let addonsTotal = 0;
+  
+        if (item.addons && item.addons.length > 0) {
+          addonsTotal = item.addons.reduce(
+            (acc, addon) => {
+              // Check if addon.price and addon.quantity are valid and convert them to numbers
+              const addonPrice = parseFloat(addon.price) || 0;
+              const addonQuantity = parseInt(addon.quantity) || 0;
+              return acc + addonPrice * addonQuantity;
+            },
+            0
+          );
+        }
+  
+        // Calculate the item's total price including addons
+        const itemTotalWithAddons = itemTotal + addonsTotal;
+  
+        // Check if item.quantity is valid and convert it to a number
+        const itemQuantity = parseInt(item.quantity) || 0;
+        newSubtotal += itemTotalWithAddons * itemQuantity;
+  
+        // Log values for debugging
+        console.log(`Item: ${item.name}`);
+        console.log(`Item Total: ${itemTotal}`);
+        console.log(`Addons Total: ${addonsTotal}`);
+        console.log(`Item Total with Addons: ${itemTotalWithAddons}`);
+        console.log(`Item Quantity: ${itemQuantity}`);
+        console.log(`Current Subtotal: ${newSubtotal}`);
+      });
+  
+      // Calculate VAT based on the subtotal
+      newVat = newSubtotal * 0.15; // 15% VAT rate
+    }
+  
+    // Calculate discountAmount (assuming you have it defined somewhere in your code)
+    const discountAmount = 0; // You can replace this with your actual discount calculation
+  
+    newTotal = newSubtotal + newVat;
+  
+    // Log final values for debugging
+    console.log(`New Subtotal: ${newSubtotal}`);
+    console.log(`New VAT: ${newVat}`);
+    console.log(`New Total: ${newTotal}`);
+  
+    // Update the state values for subtotal, vat, and total
+    setSubtotal(newSubtotal);
+    setVat(newVat);
+    setTotal(newTotal);
+  
+    return { subtotal: newSubtotal, vat: newVat, total: newTotal };
+  };
+  
+  
+  
+  
+  
+  
 
-  const vat = subtotal * 0.15; // 15% VAT rate
-  const total = subtotal + vat - discountAmount; // Subtract the discount
-
-  return { subtotal, vat, total };
-};
-
-  const { subtotal, vat } = calculateCartTotals();
-  const total = subtotal + vat - discountAmount;
+  // const { subtotal, vat } = calculateCartTotals();
+  // const total = subtotal + vat - discountAmount;
   
   // Order options
   const orderOptions = [
@@ -234,8 +357,8 @@ const calculateCartTotals = () => {
 
   useEffect(() => {
     fetchCategories()
-    console.log(initialCart)
-    setCart(initialCart)
+    // console.log(initialCart)
+    // setCart(initialCart)
     // Recalculate discount whenever the cart or selectedDiscount changes
     if (cart.length > 0 && selectedDiscount) {
       const subtotal = calculateCartSubtotal(cart);
@@ -306,6 +429,7 @@ const calculateCartTotals = () => {
         discount: null 
       }]);
     }
+    calculateCartTotals();
   };
   
 
@@ -319,6 +443,7 @@ const calculateCartTotals = () => {
     }).filter(item => item.quantity > 0);
 
     setCart(updatedCart);
+    calculateCartTotals();
   };
 
   const handleOrderOptionSelect = (optionId) => {
@@ -499,30 +624,44 @@ const calculateCartTotals = () => {
             <View style={styles.buttonContainer}>
               <View style={styles.addButtonsContainer}>
                 {/* Add Order Button */}
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => setIsModalVisible(true)} // Update isModalVisible
-                >
-                  <Text style={styles.addButtonText}>Add Order</Text>
-                </TouchableOpacity>
+                {/* Add Order Button */}
+              <TouchableOpacity
+                style={[styles.addButton, { opacity: cart.length === 0 ? 0.5 : 1 }]}
+                onPress={() => setIsModalVisible(true)} // Update isModalVisible
+                disabled={cart.length === 0}
+              >
+                <Text style={styles.addButtonText}>Add Order</Text>
+              </TouchableOpacity>
+
+              
 
                 {/* Add Discount Button */}
                 <TouchableOpacity
-                  style={styles.addButton}
+                 
+                  style={[
+                    styles.addButton,
+                    { opacity: cart.length === 0 ? 0.5 : 1 } // Change opacity based on cart length
+                  ]}
                   onPress={() => setDiscountModalVisible(true)}
                   disabled={cart.length === 0}
                 >
-                  <Text style={styles.addButtonText}>Add Discount</Text>
+                  <Text style={styles.addButtonText}>Discount</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Hold Button */}
-              <TouchableOpacity
-                style={styles.holdButton}
+              {selectedOrderOption === 'dineIn' && (
+                <TouchableOpacity
+                style={[
+                  styles.holdButton,
+                  { opacity: cart.length === 0 ? 0.5 : 1 } // Change opacity based on cart length
+                ]}
                 onPress={() => holdOrder()}
+                disabled={cart.length === 0}
               >
                 <Text style={styles.holdButtonText}>Hold</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              )}
             </View>
         </View>
         <DiscountListModal
@@ -532,16 +671,18 @@ const calculateCartTotals = () => {
         />
          <CashChangeModal
         isVisible={isModalVisible}
-        onRequestClose={() => setIsModalVisible(false)}
+        onClose={() => setIsModalVisible(false)}
         onConfirm={confirmOrder} // Update isModalVisible
         total={total} // Pass the total amount to the modal
       />
-      <ItemDetailModal
+     <ItemDetailModal
         isVisible={itemDetailModalVisible}
         item={selectedItem}
         onClose={handleCloseModal}
         onApplyDiscount={handleApplyDiscount}
+        onApplyAddons={handleApplyAddons} // Add this prop to receive selected addons
       />
+
 
       </View>
       </KeyboardAvoidingView>
@@ -892,3 +1033,4 @@ const styles = StyleSheet.create({
 });
 
 export default POSScreen;
+

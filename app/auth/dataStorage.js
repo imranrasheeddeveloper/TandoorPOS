@@ -7,7 +7,7 @@ const PRODUCTS_KEY = 'products_data_key';
 const ALL_PRODUCTS_KEY = 'all_products_key';
 const ON_HOLD_ORDERS_KEY = 'on_hold_orders_key';
 const ORDERS_KEY = 'orders_key';
-
+const TABLES_KEY = 'tables_key';
 // Store data in AsyncStorage
 export const storeData = async (key, data) => {
   try {
@@ -41,6 +41,9 @@ export const clearData = async (key) => {
 // Define your API data storage and retrieval functions
 export const storeDiscountsData = (data) => storeData(DISCOUNTS_KEY, data);
 export const getDiscountsData = () => getData(DISCOUNTS_KEY);
+
+export const storeTablesData = (data) => storeData(TABLES_KEY, data);
+export const getTablesData = () => getData(TABLES_KEY);
 
 export const storeCategoriesData = (data) => storeData(CATEGORIES_KEY, data);
 export const getCategoriesData = () => getData(CATEGORIES_KEY);

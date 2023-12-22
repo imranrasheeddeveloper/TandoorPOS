@@ -2,11 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { View, Modal, FlatList, TouchableOpacity, StyleSheet, Text, TextInput, KeyboardAvoidingView } from 'react-native';
 import { getDiscountsData } from '../auth/dataStorage';
 import colors from '../config/colors';
+import AddonSelectionModal from './AddonSelectionModal'; // Import the AddonSelectionModal
 
-const ItemDetailModal = ({ isVisible, item, onClose, onApplyDiscount }) => {
+import { MaterialCommunityIcons } from '@expo/vector-icons'; // Import MaterialCommunityIcons
+const ItemDetailModal = ({ isVisible, item, onClose, onApplyDiscount, onApplyAddons }) => {
   const [discounts, setDiscounts] = useState([]);
   const [itemNote, setItemNote] = useState(item?.note || '');
   const [selectedDiscount, setSelectedDiscount] = useState(item?.discount || null);
+  const [isAddonModalVisible, setAddonModalVisible] = useState(false); // State for the AddonSelectionModal
+  const [selectedAddons, setSelectedAddons] = useState();
 
   useEffect(() => {
     if (isVisible) {
@@ -30,9 +34,27 @@ const ItemDetailModal = ({ isVisible, item, onClose, onApplyDiscount }) => {
   };
 
   const handleApply = () => {
-    onApplyDiscount({ ...item, note: itemNote, discount: selectedDiscount });
+    onApplyDiscount({ ...item, note: itemNote, discount: selectedDiscount});
     onClose(); // Close the modal after applying
   };
+
+  const handleAddonSelection = () => {
+    setAddonModalVisible(true);
+  };
+
+  const handleApplyAddons = (selectedAddons) => {
+    // Create a new object with itemId and addons array
+    const updatedAddons = {
+      
+        itemId: item.id,
+        addons: selectedAddons,
+      
+  }
+  
+    setSelectedAddons(selectedAddons);
+    onApplyAddons(updatedAddons)
+  };
+  
 
   return (
     <Modal
@@ -42,17 +64,23 @@ const ItemDetailModal = ({ isVisible, item, onClose, onApplyDiscount }) => {
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
+        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <MaterialCommunityIcons name="close-circle" size={24} color={colors.white} />
+          </TouchableOpacity>
           <Text style={styles.itemName}>{item?.name}</Text>
           <KeyboardAvoidingView>
             <TextInput
               style={styles.noteInput}
               placeholder="Add a note for this item"
+              placeholderTextColor={colors.mediumGrey}
               value={itemNote}
               onChangeText={setItemNote}
               multiline
               numberOfLines={4}
             />
           </KeyboardAvoidingView>
+
+          
 
           <FlatList
             data={discounts}
@@ -73,14 +101,23 @@ const ItemDetailModal = ({ isVisible, item, onClose, onApplyDiscount }) => {
             )}
           />
 
-          <View style={styles.buttonContainer}>
+<View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
               <Text style={styles.buttonText}>Apply</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.buttonText}>Close</Text>
+            {/* Addons button */}
+            <TouchableOpacity style={styles.addonsButton} onPress={handleAddonSelection}>
+              <Text style={styles.buttonText}>Addons</Text>
             </TouchableOpacity>
           </View>
+
+          <AddonSelectionModal
+            isVisible={isAddonModalVisible}
+            addons={item?.productsAddons || []} // Pass the addons data to the modal
+            onClose={() => setAddonModalVisible(false)}
+            onApply={handleApplyAddons}
+            initialSelectedAddons={selectedAddons}
+          />
         </View>
       </View>
     </Modal>
@@ -96,7 +133,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.backgroundSecondary,
-    width: '80%',
+    width: '50%',
     padding: 20,
     borderRadius: 10,
   },
@@ -107,12 +144,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   noteInput: {
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundPrimary,
     padding: 10,
     borderRadius: 5,
     marginBottom: 10,
     minHeight: 80,
     textAlignVertical: 'top',
+    color: colors.white
   },
   discountItem: {
     flex: 1,
@@ -151,7 +189,7 @@ const styles = StyleSheet.create({
     marginRight: 5,
     alignItems: 'center',
   },
-  closeButton: {
+  addonsButton: {
     backgroundColor: colors.secondary,
     padding: 10,
     borderRadius: 5,
@@ -163,10 +201,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
   },
-  discountItemSelected: {
-    backgroundColor: colors.secondary,
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 1, // Ensure the button appears above the modal content
   },
-  
 });
 
 export default ItemDetailModal;

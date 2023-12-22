@@ -4,12 +4,15 @@ import {
   View, Text, FlatList, TouchableOpacity, Modal,
   StyleSheet, Image, TextInput
 } from 'react-native';
+import AddonsList from '../components/AddonsList'; // Import the AddonsList component
 
 // Assuming these functions are correctly implemented in your dataStorage module
 import { storeOrderData, getOrdersData , updateOrderState} from '../auth/sqliteHelper';
 
 import CashChangeModal from '../components/CashChangeModal';
 import { useNavigation } from '@react-navigation/native';
+import colors from '../config/colors';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const OrderScreen = () => {
   const [orders, setOrders] = useState([]);
@@ -33,8 +36,32 @@ const OrderScreen = () => {
       await updateOrderState(selectedOrder.orderNumber, 'Completed');
       setIsModalVisible(false); // Close the modal after updating
       fetchOrders(); // Fetch updated orders list
+      createPOSOrder(selectedOrder)
     }
   };
+
+  async function createPOSOrder(orderData) {
+    const apiUrl = 'https://fnb.glorek.com/api/createPOSOrder';
+  
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+  
+      const responseData = await response.json();
+      return responseData;
+    } catch (error) {
+      throw error;
+    }
+  }
   
 
   useEffect(() => {
@@ -174,11 +201,11 @@ const OrderScreen = () => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalHeaderText}>Order Details</Text>
             <TouchableOpacity onPress={() => setIsModalVisible(false)}>
-              <Text style={styles.closeButton}>X</Text>
+            <MaterialCommunityIcons name="close-circle" size={24} color={colors.white} />
             </TouchableOpacity>
           </View>
           {/* Display order details here */}
-          <Text>Order Number: {selectedOrder?.orderNumber}</Text>
+          <Text style={styles.modalOrderNumberText}>{selectedOrder?.orderNumber}</Text>
           {/* Display more order details here */}
           
 
@@ -202,7 +229,9 @@ const OrderScreen = () => {
                       {item.note && (
                         <Text style={styles.itemInfo}>Note: {item.note}</Text>
                       )}
+                      <AddonsList addons={item.addons} />
                     </View>
+                    
 
                 </View>
               )}
@@ -225,7 +254,7 @@ const OrderScreen = () => {
             </View>
           </View>
           <View style={styles.orderNote}>
-            <Text>Order Note: {selectedOrder?.orderNote}</Text>
+            <Text style={{color: 'lightgrey' , fontSize : 18 , fontWeight: 'bold'}}>Order Note {selectedOrder?.orderNote}</Text>
           </View>
 
 
@@ -256,16 +285,17 @@ const OrderScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6F8',
+    backgroundColor: colors.backgroundPrimary,
     paddingHorizontal: 15,
     paddingTop: 15,
   },
   header: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#2C3E50',
+    color: 'lightgrey',
     marginBottom: 25,
-    textAlign: 'center',
+    marginTop: 20
+   
   },
   filterButtonsContainer: {
     flexDirection: 'row',
@@ -277,14 +307,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#34495E',
+    borderColor: colors.secondary,
     marginHorizontal: 5,
   },
   selectedFilterButton: {
-    backgroundColor: '#34495E',
+    backgroundColor: colors.secondary,
   },
   filterButtonText: {
-    color: '#34495E',
+    color: 'lightgrey',
     fontSize: 16,
   },
   selectedFilterButtonText: {
@@ -301,33 +331,40 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingLeft: 15,
     paddingRight: 15,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: colors.backgroundSecondary,
     fontSize: 16,
+    color: 'lightgrey'
   },
   headerRow: {
     flexDirection: 'row',
-    backgroundColor: '#f4f4f4',
+    backgroundColor: colors.secondary,
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
     paddingVertical: 8,
+    
   },
   headerCell: {
     flex: 1,
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
+    color: 'lightgrey',
   },
   row: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     paddingVertical: 10,
-    backgroundColor: 'white',
+    backgroundColor: colors.backgroundSecondary,
+    
   },
   cell: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'lightgrey',
+    textAlign : 'center',
   },
   
   closeButton: {
@@ -369,7 +406,7 @@ const styles = StyleSheet.create({
   
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.backgroundSecondary,
     paddingHorizontal: 20,
     paddingVertical: 20,
     borderTopLeftRadius: 20,
@@ -386,11 +423,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+    color: 'lightgrey'
   },
   modalHeaderText: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#2C3E50',
+    fontSize: 24,
+    fontWeight: '900',
+    color: 'lightgrey'
+  },
+  modalOrderNumberText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: 'lightgrey'
   },
   closeButton: {
     fontSize: 24,
@@ -409,14 +452,14 @@ const styles = StyleSheet.create({
   },
   orderDetailText: {
     fontSize: 16,
-    color: '#333',
+    color: 'lightgrey',
     marginBottom: 5,
   },
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: colors.backgroundPrimary,
     borderRadius: 10,
     padding: 10,
     margin: 5,
@@ -434,12 +477,12 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: 'lightgrey',
     marginBottom: 5,
   },
   itemInfo: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 16,
+    color: 'lightgrey',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -460,7 +503,7 @@ const styles = StyleSheet.create({
   },
 
   summaryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.backgroundPrimary,
     borderRadius: 15,
     padding: 15,
     marginVertical: 5,
@@ -474,23 +517,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gridLabel: {
-    fontSize: 14,
-    color: '#4F4F4F',
-    fontWeight: '600',
+    fontSize: 30,
+    color: 'lightgrey',
+    fontWeight: '700',
   },
   gridValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#2ECC71',
+    fontSize: 35,
+    fontWeight: '900',
+    color: 'lightgrey',
   },
   orderNote: {
     marginTop: 10,
-    fontSize: 14,
-    color: '#333',
+    fontSize: 18,
+    color: 'lightgrey',
     fontStyle: 'italic',
-    padding: 8,
+    padding: 10,
     borderRadius: 8,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: colors.backgroundPrimary,
   },
 
 
